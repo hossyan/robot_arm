@@ -1,25 +1,4 @@
-#include <M5Unified.h>
-#include <WiFi.h>
-#include <WebServer.h>
-
-// WiFi設定
-const char* ssid = "hossyane"; 
-const char* password = "hossyan3845290716";
-
-// Webサーバー
-WebServer server(80);
-
-// スライドバーの値保持
-const int numSliders = 11;
-float sliderValues[numSliders];
-
-//ボタンの値
-bool hand_btn = true;
-
-// HTMLページ生成関数
-String createHTMLPage() {
-  return R"rawliteral(
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -27,14 +6,6 @@ String createHTMLPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hossyan Controller</title>
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow-x: hidden; /* 横スクロールを無効にする */  
-    }
-
     body {
       text-align: center;
       margin-top: 50px;
@@ -178,105 +149,3 @@ String createHTMLPage() {
 </body>
 
 </html>
-  )rawliteral";
-}
-
-// ルートページハンドラ
-void handleRoot() {
-  server.send(200, "text/html", createHTMLPage());
-}
-
-// ハンド開
-void handopen() {
-  hand_btn = true; 
-  server.send(200, "text/plain", "Open command received");
-}
-
-// ハンド閉
-void handClose() {
-  hand_btn = false;
-  server.send(200, "text/plain", "Close command received");
-}
-
-// スライダー値変更ハンドラ
-void handleSliderValue() {
-  // URLパラメータからスライダー番号と値を取得
-  String sliderNumberStr = server.arg("slider");
-  String value = server.arg("value");
-
-  // sliderNumberStr を int 型に変換
-  int sliderNumber = sliderNumberStr.toInt();  // String を int に変換
-
-  if (sliderNumber >= 1 && sliderNumber <= numSliders) {
-    // sliderValues 配列のインデックスに値を代入
-    sliderValues[sliderNumber - 1] = value.toFloat(); 
-  }
-
-  // HTTP レスポンスを送信
-  server.send(200, "text/plain", "Slider " + String(sliderNumber) + " value set to " + value);
-}
-
-void Lcd_update() {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.printf("arm_1_kp:%f\n",sliderValues[0]);
-  M5.Lcd.printf("arm_1_kd:%f\n",sliderValues[1]);
-  M5.Lcd.printf("arm_1_ki:%f\n",sliderValues[2]);
-  M5.Lcd.printf("arm_1_angle:%f\n",sliderValues[3]);
-  M5.Lcd.printf("arm_2_kp:%f\n",sliderValues[4]);
-  M5.Lcd.printf("arm_2_kd:%f\n",sliderValues[5]);
-  M5.Lcd.printf("arm_2_ki:%f\n",sliderValues[6]);
-  M5.Lcd.printf("arm_2_angle:%f\n",sliderValues[7]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[8]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[9]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[10]);
-  if(hand_btn == true){
-    M5.Lcd.println("hand:open");
-  }else if(hand_btn == false){
-    M5.Lcd.println("hand:closeeeeeeeeeeee");
-  }
-}
-
-void setup() {
-  // M5Stack初期化
-  M5.begin();
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.println("Connecting to WiFi...");
-
-  // WiFi接続
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    M5.Lcd.print(".");
-  }
-  M5.Lcd.println("\nWiFi Connected!");
-  M5.Lcd.println("IP Address:");
-  M5.Lcd.println(WiFi.localIP());
-
-  // Webサーバーハンドラの設定
-  server.on("/", handleRoot);       // ルートページ
-  server.on("/open", handopen);       // Openボタン
-  server.on("/close", handClose);     // Closeボタン
-  server.on("/setSliderValue", handleSliderValue); // スライダー値の設定
-
-  // Webサーバー開始
-  server.begin();
-  M5.Lcd.fillScreen(BLACK);
-}
-
-void loop() {
-  // Webサーバーのリクエスト処理
-  server.handleClient();
-
-  // 100ms周期で行うもの
-  auto now = millis();
-  static auto last_display = now;
-  if(now - last_display > 100){
-    Lcd_update();
-    last_display = now;
-  }
-}
