@@ -1,10 +1,13 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <SPI.h>
+#include <mcp_can.h>
 
+// Web Server ------------------------------------------------------
 // WiFi設定
-const char* ssid = "hossyane"; 
-const char* password = "hossyan3845290716";
+const char* ssid = "manji"; 
+const char* password = "hinji";
 
 // Webサーバー
 WebServer server(80);
@@ -124,20 +127,20 @@ String createHTMLPage() {
   <div class="item_apart">
     <div class="slider-container">
       <p>arm_2_kp: <span id="sliderValue5">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider5" class="slider"onchange="updateSliderValue(5)">
+      <input type="range" min="0.00" max="0.0001" step="0.000001" value="0" id="slider5" class="slider"onchange="updateSliderValue(5)">
     </div>
     <div class="slider-container">
       <p>arm_2_kd: <span id="sliderValue6">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider6" class="slider"onchange="updateSliderValue(6)">
+      <input type="range" min="0.00" max="0.01" step="0.0001" value="0" id="slider6" class="slider"onchange="updateSliderValue(6)">
     </div>
     <div class="slider-container">
-      <p>arm_2_ki: <span id="sliderValue3">0</span></p>
+      <p>arm_2_ki: <span id="sliderValue7">0</span></p>
       <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider7" class="slider"onchange="updateSliderValue(7)">
     </div>
     <p class="box"> </p>
     <div class="slider-container">
       <p>arm_2_angle: <span id="sliderValue8">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider8" class="slider"onchange="updateSliderValue(8)">
+      <input type="range" min="0.00" max="4000.00" step="50.00" value="0" id="slider8" class="slider"onchange="updateSliderValue(8)">
     </div>
   </div>
 
@@ -169,7 +172,7 @@ String createHTMLPage() {
       var sliderValue = document.getElementById("sliderValue" + sliderNumber);
 
       // 小数第2位まで表示
-      sliderValue.innerText = parseFloat(slider.value).toFixed(2);
+      sliderValue.innerText = parseFloat(slider.value).toFixed(6);
 
       // スライダー番号と値をサーバーに送信
       fetch('/setSliderValue?slider=' + sliderNumber + '&value=' + slider.value);
@@ -216,31 +219,181 @@ void handleSliderValue() {
   server.send(200, "text/plain", "Slider " + String(sliderNumber) + " value set to " + value);
 }
 
-void Lcd_update() {
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(0, 0);
-  M5.Lcd.printf("arm_1_kp:%f\n",sliderValues[0]);
-  M5.Lcd.printf("arm_1_kd:%f\n",sliderValues[1]);
-  M5.Lcd.printf("arm_1_ki:%f\n",sliderValues[2]);
-  M5.Lcd.printf("arm_1_angle:%f\n",sliderValues[3]);
-  M5.Lcd.printf("arm_2_kp:%f\n",sliderValues[4]);
-  M5.Lcd.printf("arm_2_kd:%f\n",sliderValues[5]);
-  M5.Lcd.printf("arm_2_ki:%f\n",sliderValues[6]);
-  M5.Lcd.printf("arm_2_angle:%f\n",sliderValues[7]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[8]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[9]);
-  M5.Lcd.printf("hand_kp:%f\n",sliderValues[10]);
+void Serial_update() {
+//   M5.Lcd.setTextSize(2);
+//   M5.Lcd.fillScreen(BLACK);
+//   M5.Lcd.setCursor(0, 0);
+  Serial.printf(" a1_kp:%.2f",sliderValues[0]);
+  Serial.printf("  a1_kd:%.2f",sliderValues[1]);
+  Serial.printf("  a1_ki:%.2f",sliderValues[2]);
+  Serial.printf("  a1_angle:%.2f",sliderValues[3]);
+  Serial.printf("  a2_kp:%.2f",sliderValues[4]);
+  Serial.printf("  a2_kd:%.2f",sliderValues[5]);
+  Serial.printf("  a2_ki:%.2f",sliderValues[6]);
+  Serial.printf("  a2_angle:%.2f",sliderValues[7]);
+  Serial.printf("  hand_kp:%.2f",sliderValues[8]);
+  Serial.printf("  hand_kp:%.2f",sliderValues[9]);
+  Serial.printf("  hand_kp:%.2f",sliderValues[10]);
   if(hand_btn == true){
-    M5.Lcd.println("hand:open");
+    Serial.println("  hand:open");
   }else if(hand_btn == false){
-    M5.Lcd.println("hand:closeeeeeeeeeeee");
+    Serial.println("  hand:close");
   }
+}
+
+// Motor control -----------------------------------
+// canのデータ配列の作成
+unsigned char data[8] = {0};
+
+//can setup
+long unsigned int rxId;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+#define CAN0_INT 15  // Set INT to pin 2
+MCP_CAN CAN0(27);    // Set CS to pin 10
+
+// エンコーダパラメータ
+int encoder_max = 8191;
+int encoder_min = 0;
+float motor_gear_ratio = 19.2;
+
+// エンコーダに関する構造体
+struct Encoder
+{
+    float angle;
+    float pre_angle;
+    bool flag;
+};
+
+Encoder arm_1_encoder = {0.0, 0.0, true}; 
+Encoder arm_2_encoder = {0.0, 0.0, true}; 
+float motor_angle[2] = {0.0, 0.0};
+
+// PIDパラメータ
+unsigned long elapsed_time;
+unsigned long pre_time = 0;
+unsigned long dt;
+
+// PIDパラメータの構造体
+struct PID
+{
+    float kp;
+    float ki;
+    float kd;
+    float integral;
+    float pre_error;
+};
+
+PID arm_1_param = {0.0, 0.0, 0.0, 0.0, 0.0};
+PID arm_2_param = {0.0, 0.0, 0.0, 0.0, 0.0};
+constexpr int motor_number = 2;
+int motor_out[motor_number] = {0};
+float motor_target[motor_number] = {0.0};
+float target_inc[motor_number] = {200.0, 200.0};
+float arm_target[motor_number] = {1850.0, 3000.0};
+
+// 関数ゾーン-----------------
+// can初期化
+void init_can() {
+    if (CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) == CAN_OK) {
+        Serial.println("MCP2515 Initialized Successfully!");
+    } else {
+        Serial.println("Error Initializing MCP2515...");
+    }
+    CAN0.setMode(MCP_NORMAL);
+}
+
+// DJIのCAN送信
+void DJI_CAN_send(){
+    int16_t r_currentValue = (int16_t)motor_out[0]; // 制御したい電流値 (-16384 〜 16384 の範囲)
+    data[0] = (r_currentValue >> 8) & 0xFF; // 上位バイト
+    data[1] = r_currentValue & 0xFF;        // 下位バイト
+    int16_t l_currentValue = (int16_t)motor_out[1]; // 制御したい電流値 (-16384 〜 16384 の範囲)
+    data[2] = (l_currentValue >> 8) & 0xFF; // 上位バイト
+    data[3] = l_currentValue & 0xFF;        // 下位バイト
+
+    byte sndStat = CAN0.sendMsgBuf(0x200, 0, 8, data);
+}
+
+float encoder_calc(Encoder &enc, int16_t angle_raw){
+    if(enc.flag){
+        enc.pre_angle = angle_raw;
+        enc.flag = !enc.flag;
+    }
+
+    if(angle_raw - enc.pre_angle < -4000){
+        enc.angle += ((encoder_max - enc.pre_angle) + angle_raw) / motor_gear_ratio;
+    }else if(angle_raw - enc.pre_angle > 4000){
+        enc.angle -= ((enc.pre_angle - encoder_min) + (encoder_max - angle_raw)) / motor_gear_ratio;
+    }else{
+        enc.angle += (angle_raw - enc.pre_angle) / motor_gear_ratio;
+    }
+
+    enc.pre_angle = angle_raw;
+
+    return enc.angle;
+}
+
+void DJI_CAN_read(){
+    if (CAN0.checkReceive() == CAN_MSGAVAIL) {
+        CAN0.readMsgBuf(&rxId, &len, rxBuf);
+        if (rxId == 0x201) {
+            int16_t angle_1 = ((rxBuf[0] << 8) | rxBuf[1]); // 上位と下位バイトを結合
+            motor_angle[0] = encoder_calc(arm_1_encoder, angle_1);
+        }
+        if (rxId == 0x202) {
+            int16_t angle_2 = ((rxBuf[0] << 8) | rxBuf[1]); // 上位と下位バイトを結合
+            motor_angle[1] = encoder_calc(arm_2_encoder, angle_2);
+        }
+    }
+}
+
+// PID計算
+int pid_calc(PID &pid, float target, float current){
+    float error = target - current;
+    pid.integral += error * dt;
+    float deriv = (error - pid.pre_error) / dt;
+    pid.pre_error = error;
+    float output = (error * pid.kp) + (pid.integral * pid.ki) + (deriv * pid.kd);
+
+    //整形
+    if(output >= 1.0){
+        output = 1.0;
+    }else if(output <= -1.0){
+        output = -1.0;
+    }
+    output = 10000 * output; //数値は最大電流制限
+
+    return static_cast<int>(output);
+}
+
+void input_shaping_filter() {
+    for(int i=0; i < motor_number; i++){
+        //targetの差がincより小さかった時用
+        if(abs(arm_target[i] - motor_target[i]) <= target_inc[i]) {
+            motor_target[i] = arm_target[i];
+        }
+
+        //出力の増減を行う
+        if(motor_target[i] < arm_target[i]) {
+            motor_target[i] += target_inc[i];
+        }else if(motor_target[i] > arm_target[i]) {
+            motor_target[i] -= target_inc[i];
+        }
+    }
+}
+
+void motor_param_update() {
+    arm_2_param.kp = sliderValues[4];
+    arm_2_param.kd = sliderValues[5];
+    arm_target[1] = sliderValues[7];
 }
 
 void setup() {
   // M5Stack初期化
   M5.begin();
+  M5.Power.begin();
+  Serial.begin(115200);
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setTextColor(WHITE);
   M5.Lcd.setTextSize(2);
@@ -253,6 +406,8 @@ void setup() {
     delay(500);
     M5.Lcd.print(".");
   }
+  M5.Lcd.println();
+  M5.Lcd.println("server start!!");
   M5.Lcd.println("\nWiFi Connected!");
   M5.Lcd.println("IP Address:");
   M5.Lcd.println(WiFi.localIP());
@@ -265,18 +420,49 @@ void setup() {
 
   // Webサーバー開始
   server.begin();
-  M5.Lcd.fillScreen(BLACK);
+
+  //can初期化
+  init_can();
 }
 
 void loop() {
-  // Webサーバーのリクエスト処理
-  server.handleClient();
+    // Webサーバーのリクエスト処理
+    server.handleClient();
+    motor_param_update();
 
-  // 100ms周期で行うもの
-  auto now = millis();
-  static auto last_display = now;
-  if(now - last_display > 100){
-    Lcd_update();
-    last_display = now;
+    //センサー値取得
+    DJI_CAN_read();
+
+    //入力整形
+    auto now = millis();
+    static auto pre_100ms = now;
+    if(now - pre_100ms) {
+        input_shaping_filter();
+        pre_100ms = now;
+    }
+
+    //10ms周期で行うもの:シリアルモニタ,cansend
+    static auto pre_10ms = now;
+    if(now - pre_10ms > 10) {
+        //シリアルモニタ
+        Serial.printf("angle1:%f",motor_angle[0]);
+        Serial.printf("\tangle2:%f",motor_angle[1]);
+        Serial.printf("\toutput1:%d",motor_out[0]);
+        Serial.printf("\toutput2:%d",motor_out[1]);
+        Serial.printf("\ta2_kp:%f",arm_2_param.kp);
+        Serial.printf("\ta2_kd:%f",arm_2_param.kd);
+        Serial.printf("\ta2_target:%f",arm_target[1]);
+        Serial.println();
+
+        //モータ制御
+        elapsed_time = millis();
+        dt = elapsed_time - pre_time;
+        pre_time = elapsed_time;
+        // motor_out[0] = pid_calc(arm_1_param, motor_target[0], motor_angle[0]);
+        motor_out[1] = pid_calc(arm_2_param, motor_target[1], motor_angle[1]);
+        DJI_CAN_send();
+
+        //時間
+        pre_10ms = now;
   }
 }
