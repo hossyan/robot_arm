@@ -6,8 +6,8 @@
 
 // Web Server ------------------------------------------------------
 // WiFi設定
-const char* ssid = "manji"; 
-const char* password = "hinji";
+const char* ssid = "GL-SFT1200-19f"; 
+const char* password = "goodlife";
 
 // Webサーバー
 WebServer server(80);
@@ -17,7 +17,7 @@ const int numSliders = 11;
 float sliderValues[numSliders];
 
 //ボタンの値
-bool hand_btn = true;
+bool hand_btn = false;
 
 // HTMLページ生成関数
 String createHTMLPage() {
@@ -110,16 +110,16 @@ String createHTMLPage() {
     </div>
     <div class="slider-container">
       <p>arm_1_kd: <span id="sliderValue2">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider2" class="slider"onchange="updateSliderValue(2)">
+      <input type="range" min="0.00" max="3.00" step="0.01" value="0" id="slider2" class="slider"onchange="updateSliderValue(2)">
     </div>
     <div class="slider-container">
       <p>arm_1_ki: <span id="sliderValue3">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider3" class="slider"onchange="updateSliderValue(3)">
+      <input type="range" min="0.00" max="0.00" step="0.00" value="0" id="slider3" class="slider"onchange="updateSliderValue(3)">
     </div>
     <p class="box"> </p>
     <div class="slider-container">
       <p>arm_1_angle: <span id="sliderValue4">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider4" class="slider"onchange="updateSliderValue(4)">
+      <input type="range" min="0.00" max="55000.00" step="50.00" value="0" id="slider4" class="slider"onchange="updateSliderValue(4)">
     </div>
   </div>
 
@@ -127,39 +127,27 @@ String createHTMLPage() {
   <div class="item_apart">
     <div class="slider-container">
       <p>arm_2_kp: <span id="sliderValue5">0</span></p>
-      <input type="range" min="0.00" max="0.0001" step="0.000001" value="0" id="slider5" class="slider"onchange="updateSliderValue(5)">
+      <input type="range" min="0.00" max="4.0" step="0.01" value="0" id="slider5" class="slider"onchange="updateSliderValue(5)">
     </div>
     <div class="slider-container">
       <p>arm_2_kd: <span id="sliderValue6">0</span></p>
-      <input type="range" min="0.00" max="0.01" step="0.0001" value="0" id="slider6" class="slider"onchange="updateSliderValue(6)">
+      <input type="range" min="0.00" max="3.00" step="0.01" value="0" id="slider6" class="slider"onchange="updateSliderValue(6)">
     </div>
     <div class="slider-container">
       <p>arm_2_ki: <span id="sliderValue7">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider7" class="slider"onchange="updateSliderValue(7)">
+      <input type="range" min="0.00" max="0.00" step="0.0" value="0" id="slider7" class="slider"onchange="updateSliderValue(7)">
     </div>
     <p class="box"> </p>
     <div class="slider-container">
       <p>arm_2_angle: <span id="sliderValue8">0</span></p>
-      <input type="range" min="0.00" max="4000.00" step="50.00" value="0" id="slider8" class="slider"onchange="updateSliderValue(8)">
+      <input type="range" min="0.00" max="60000.00" step="50.00" value="0" id="slider8" class="slider"onchange="updateSliderValue(8)">
     </div>
   </div>
 
   <!-- hand -->
   <div class="item_apart">
-    <div class="slider-container">
-      <p>hand_kp: <span id="sliderValue9">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider9" class="slider"onchange="updateSliderValue(9)">
-    </div>
-    <div class="slider-container">
-      <p>hand_kd: <span id="sliderValue10">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider10" class="slider"onchange="updateSliderValue(10)">
-    </div>
-    <div class="slider-container">
-      <p>hand_ki: <span id="sliderValue11">0</span></p>
-      <input type="range" min="0.00" max="1.00" step="0.01" value="0" id="slider11" class="slider"onchange="updateSliderValue(11)">
-    </div>
-    <button class="btn" onclick="sendCommand('open')">open</button>
-    <button class="btn" onclick="sendCommand('close')">close</button>
+    <button class="btn" onclick="sendCommand('up')">up</button>
+    <button class="btn" onclick="sendCommand('down')">down</button>
   </div>
 
   <script>
@@ -178,7 +166,8 @@ String createHTMLPage() {
       fetch('/setSliderValue?slider=' + sliderNumber + '&value=' + slider.value);
     }
   </script>
-</body>
+</body>aa\
+\[]
 
 </html>
   )rawliteral";
@@ -190,15 +179,15 @@ void handleRoot() {
 }
 
 // ハンド開
-void handopen() {
+void armup() {
   hand_btn = true; 
-  server.send(200, "text/plain", "Open command received");
+  server.send(200, "text/plain", "up command received");
 }
 
 // ハンド閉
-void handClose() {
+void armdown() {
   hand_btn = false;
-  server.send(200, "text/plain", "Close command received");
+  server.send(200, "text/plain", "down command received");
 }
 
 // スライダー値変更ハンドラ
@@ -241,7 +230,7 @@ void Serial_update() {
   }
 }
 
-// Motor control -----------------------------------
+// Motor control ----------------------------------------------------------------------------------------------
 // canのデータ配列の作成
 unsigned char data[8] = {0};
 
@@ -253,7 +242,7 @@ unsigned char rxBuf[8];
 MCP_CAN CAN0(27);    // Set CS to pin 10
 
 // エンコーダパラメータ
-int encoder_max = 8191;
+int encoder_max = 8191; 
 int encoder_min = 0;
 float motor_gear_ratio = 19.2;
 
@@ -284,13 +273,13 @@ struct PID
     float pre_error;
 };
 
-PID arm_1_param = {0.0, 0.0, 0.0, 0.0, 0.0};
-PID arm_2_param = {0.0, 0.0, 0.0, 0.0, 0.0};
+PID arm_1_param = {0.48, 0.0, 2.27, 0.0, 0.0};
+PID arm_2_param = {0.46, 0.0, 2.56, 0.0, 0.0};
 constexpr int motor_number = 2;
 int motor_out[motor_number] = {0};
 float motor_target[motor_number] = {0.0};
-float target_inc[motor_number] = {200.0, 200.0};
-float arm_target[motor_number] = {1850.0, 3000.0};
+float target_inc[motor_number] = {10.0, 15.0};
+float arm_target[motor_number] = {0.0, 0.0};
 
 // 関数ゾーン-----------------
 // can初期化
@@ -322,11 +311,11 @@ float encoder_calc(Encoder &enc, int16_t angle_raw){
     }
 
     if(angle_raw - enc.pre_angle < -4000){
-        enc.angle += ((encoder_max - enc.pre_angle) + angle_raw) / motor_gear_ratio;
+        enc.angle += ((encoder_max - enc.pre_angle) + angle_raw);
     }else if(angle_raw - enc.pre_angle > 4000){
-        enc.angle -= ((enc.pre_angle - encoder_min) + (encoder_max - angle_raw)) / motor_gear_ratio;
+        enc.angle -= ((enc.pre_angle - encoder_min) + (encoder_max - angle_raw));
     }else{
-        enc.angle += (angle_raw - enc.pre_angle) / motor_gear_ratio;
+        enc.angle += (angle_raw - enc.pre_angle);
     }
 
     enc.pre_angle = angle_raw;
@@ -357,14 +346,21 @@ int pid_calc(PID &pid, float target, float current){
     float output = (error * pid.kp) + (pid.integral * pid.ki) + (deriv * pid.kd);
 
     //整形
-    if(output >= 1.0){
-        output = 1.0;
-    }else if(output <= -1.0){
-        output = -1.0;
+    if(output >= 12000){
+        output = 12000;
+    }else if(output <= -12000){
+        output = -12000;
     }
-    output = 10000 * output; //数値は最大電流制限
-
     return static_cast<int>(output);
+}
+
+// motor0のフィードフォワード
+void arm0_anti_gravity(){
+  int support_current_max = 5800;
+  int encoder_90_deg = 34900;
+  int anti_gravity = (encoder_90_deg - motor_angle[0]) / encoder_90_deg * support_current_max;
+
+  motor_out[0] = motor_out[0] + anti_gravity;
 }
 
 void input_shaping_filter() {
@@ -375,6 +371,7 @@ void input_shaping_filter() {
         }
 
         //出力の増減を行う
+     
         if(motor_target[i] < arm_target[i]) {
             motor_target[i] += target_inc[i];
         }else if(motor_target[i] > arm_target[i]) {
@@ -383,10 +380,37 @@ void input_shaping_filter() {
     }
 }
 
+void lcd_update() {
+  int x = 50;   // 表示位置（X座標）
+  int y = 200;  // 表示位置（Y座標）
+  int w = 100;  // 消去する幅
+  int h = 40;   // 消去する高さ
+
+  M5.Lcd.fillRect(x, y, w, h, BLACK);
+  M5.Lcd.setCursor(x, y);
+  if(hand_btn == true){
+    M5.Lcd.println("up");
+  }else if(hand_btn == false){
+    M5.Lcd.println("down");
+  }
+}
+
 void motor_param_update() {
-    arm_2_param.kp = sliderValues[4];
-    arm_2_param.kd = sliderValues[5];
-    arm_target[1] = sliderValues[7];
+    // arm_1_param.kp = sliderValues[0];
+    // arm_1_param.kd = sliderValues[1];
+    // arm_1_param.ki = sliderValues[2];
+    // arm_target[0] = sliderValues[3];
+    // arm_2_param.kp = sliderValues[4];
+    // arm_2_param.kd = sliderValues[5];
+    // arm_2_param.ki = sliderValues[6];
+    // arm_target[1] = sliderValues[7];
+    if(hand_btn == true){
+      arm_target[0] = 40000;
+      arm_target[1] = 60000;
+    }else if(hand_btn == false){
+      arm_target[0] = 0;
+      arm_target[1] = 0;
+    }
 }
 
 void setup() {
@@ -414,8 +438,8 @@ void setup() {
 
   // Webサーバーハンドラの設定
   server.on("/", handleRoot);       // ルートページ
-  server.on("/open", handopen);       // Openボタン
-  server.on("/close", handClose);     // Closeボタン
+  server.on("/up", armup);       // Openボタン
+  server.on("/down", armdown);     // Closeボタン
   server.on("/setSliderValue", handleSliderValue); // スライダー値の設定
 
   // Webサーバー開始
@@ -451,14 +475,15 @@ void loop() {
         Serial.printf("\toutput2:%d",motor_out[1]);
         Serial.printf("\ta2_kp:%f",arm_2_param.kp);
         Serial.printf("\ta2_kd:%f",arm_2_param.kd);
-        Serial.printf("\ta2_target:%f",arm_target[1]);
+        Serial.printf("\ta2_target:%f",motor_target[1]);
         Serial.println();
 
         //モータ制御
         elapsed_time = millis();
         dt = elapsed_time - pre_time;
         pre_time = elapsed_time;
-        // motor_out[0] = pid_calc(arm_1_param, motor_target[0], motor_angle[0]);
+        motor_out[0] = pid_calc(arm_1_param, motor_target[0], motor_angle[0]);
+        arm0_anti_gravity();
         motor_out[1] = pid_calc(arm_2_param, motor_target[1], motor_angle[1]);
         DJI_CAN_send();
 
